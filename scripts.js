@@ -2,11 +2,11 @@
 let tree =[
     {
         name: "Parent",
+        spouse: null,
         generation: 0,
-        isSpouse: false,
         marriageUnionId: 0,
         parentMarriageUnionId: null,
-        numberChildren: 4,
+        numberChildren: 3,
         x: null,
         y: null,
         width: null,
@@ -14,19 +14,8 @@ let tree =[
     },
     {
         name: "Child1",
+        spouse: "ChildSpouse1",
         generation: 1,
-        isSpouse: false,
-        marriageUnionId: 1,
-        parentMarriageUnionId: 0,
-        numberChildren: 2,
-        x: null,
-        y: null,
-        width: null,
-    },
-    {
-        name: "ChildSpouse1",
-        generation: 1,
-        isSpouse: true,
         marriageUnionId: 1,
         parentMarriageUnionId: 0,
         numberChildren: 2,
@@ -36,19 +25,8 @@ let tree =[
     },
     {
         name: "Child2",
+        spouse: null,
         generation: 1,
-        isSpouse: false,
-        marriageUnionId: 2,
-        parentMarriageUnionId: 0,
-        numberChildren: 0,
-        x: null,
-        y: null,
-        width: null,
-    },
-    {
-        name: "ChildSpouse2",
-        generation: 1,
-        isSpouse: true,
         marriageUnionId: 2,
         parentMarriageUnionId: 0,
         numberChildren: 0,
@@ -58,8 +36,8 @@ let tree =[
     },
     {
         name: "Child3",
+        spouse: null,
         generation: 1,
-        isSpouse: false,
         marriageUnionId: null,
         parentMarriageUnionId: 0,
         numberChildren: 0,
@@ -69,8 +47,8 @@ let tree =[
     },
     {
         name: "Grandchild1A",
+        spouse: "Grandchild1A Spouse",
         generation: 2,
-        isSpouse: false,
         marriageUnionId: 3,
         parentMarriageUnionId: 1,
         numberChildren: 0,
@@ -80,9 +58,9 @@ let tree =[
     },
     {
         name: "Grandchild1B",
+        spouse: null,
         generation: 2,
-        isSpouse: true,
-        marriageUnionId: 3,
+        marriageUnionId: null,
         parentMarriageUnionId: 1,
         numberChildren: 0,
         x: null,
@@ -91,8 +69,8 @@ let tree =[
     },
     {
         name: "Grandchild2A",
+        spouse: null,
         generation: 2,
-        isSpouse: false,
         marriageUnionId: null,
         parentMarriageUnionId: 2,
         numberChildren: 0,
@@ -134,14 +112,18 @@ for(let n = 0; n < 5; n++){
             x+= horizontalOffset*1.5;*/
 
 
-        let numOfSiblings = tree[n-1];      //number of parents children
+        let numOfSiblings = tree[n-1].numberChildren;      //number of parents children
         if(numOfSiblings > 0){
             childWidth = screenWidth/numOfSiblings;
-            x = childWidth /2;
+
+            if(tree[n-1].generation !== tree[n].generation){
+                y+=50;
+                x = childWidth /2;
+            }
             if(tree[n].marriageUnionId != null && !tree[n].isSpouse)
                 x-=10;
             else if(tree[n].marriageUnionId != null && tree[n].isSpouse)
-                x+=10;
+                x+=20;
             tree[n].width = childWidth;
 
         }
