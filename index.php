@@ -1,3 +1,20 @@
+<?php
+require_once("db_config.php");
+
+if(isset($_POST['loginUser'])){
+    $id = null;
+    $email = filter_var($_POST['email'], FILTER_SANITIZE_STRING);
+    $password = filter_var($_POST['password'], FILTER_SANITIZE_STRING);
+
+
+
+
+}
+?>
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,13 +33,7 @@
 <canvas id="myCanvas" width="700" height="700" style="border:1px solid #000000;"> Your browser doesn't support visualization of family trees
 </canvas>
 -->
-<h1>Sign In</h1>
-<form action="create_account.php" method="post">
-    Username: <input type="text" name="username"></br>
-    Password: <input type="text" name="password"></br>
-    <a href="create_account.php">Create a new account</a></br>
-    <a href="tree.php" class="btn btn-success">Login</a>
-</form>
+tree
 <!--
 <div>
     <ul id="tree">

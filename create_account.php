@@ -19,7 +19,7 @@
             'lastName'      => $lastname,
             'id'            => null
         ])){
-            header('Location: index.php');
+            header('Location: sign_in.php');
             die();
         }
         else{
