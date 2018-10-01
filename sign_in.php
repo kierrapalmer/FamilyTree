@@ -9,17 +9,13 @@ if(isset($_POST['loginUser'])){
     $query = "SELECT *
                   FROM user
                   WHERE email = '{$email}' AND password = '{$password}'";
-    $results = $db_connection->query($query);
-    $count= count($results->fetchAll());
+    $result = $db_connection->query($query)->fetch();
 
-    if($count == 1){
-        $results = $db_connection->query($query);       //have to query again because fetchAll changes results?
-        foreach($results as $result) {
-            session_start();
-            $_SESSION['uId'] = $result['id'];
-            header('Location: index.php');
-            die();
-        }
+    if($result != null){
+        session_start();
+        $_SESSION['uId'] = $result['id'];
+        header('Location: index.php');
+        die();
     }
     else{
         echo "There was an error creating your account. <a href='sign_in.php'>Please try again</a>";

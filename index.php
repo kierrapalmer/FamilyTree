@@ -1,14 +1,14 @@
 <?php
 require_once("db_config.php");
 
-if(isset($_POST['loginUser'])){
-    $id = null;
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_STRING);
-    $password = filter_var($_POST['password'], FILTER_SANITIZE_STRING);
 
-
-
-
+session_start();
+if(isset($_SESSION["uId"])) {
+    $id = $_SESSION["uId"];
+    $query = "SELECT *
+                  FROM user
+                  WHERE id = '{$id}'";
+    $row = $db_connection->query($query)->fetch();
 }
 ?>
 
@@ -28,12 +28,17 @@ if(isset($_POST['loginUser'])){
 </head>
 <body>
 
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">Family Tree</a>
+    <div class="navbar-nav">
+            <a class="nav-link" href="" data-target="#myModal" data-toggle="modal"> + Add New Member</a>
+    </div>
+    <div class="navbar-nav ml-auto">
+            <a class="nav-link" href="" data-target="#myModal" data-toggle="modal"><?php echo $row["firstName"]?></a>
+            <a class="nav-link" href="" data-target="#myModal" data-toggle="modal">Sign out</a>
+    </div>
 
-<!--
-<canvas id="myCanvas" width="700" height="700" style="border:1px solid #000000;"> Your browser doesn't support visualization of family trees
-</canvas>
--->
-tree
+</nav>
 <!--
 <div>
     <ul id="tree">
