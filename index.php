@@ -59,6 +59,10 @@ error_reporting(E_ALL);
             $node = new Node($id, null, null, null, null);
             $node -> deleteNode($db_connection);
         }
+        elseif($actionType == "divorce"){
+	        $node = new Node($id, null, null, null, null);
+	        $node -> divorceSpouse($db_connection);
+        }
 
     }
 
@@ -107,7 +111,7 @@ error_reporting(E_ALL);
         }
 
         public function changeSpouse($db_connection){
-	        $results = $db_connection->query("SELECT firstName, lastName FROM tree_node WHERE _id = {$this->id}")->fetch();
+	        $results = $db_connection->query("SELECT _id, firstName, lastName FROM tree_node WHERE _id = {$this->id}")->fetch();
             $member = $results['firstName'] . " " . $results['lastName'];
 	        $spouse = $this->first . " " . $this->last;
 
@@ -115,8 +119,8 @@ error_reporting(E_ALL);
                     SET spouse = :spouse
                     WHERE _id = :_id";
 
-            $addMarriageQuery = "INSERT INTO marriage_union(unionId, member, spouse)
-						VALUES	(:_id, :member, :spouse)";
+            $addMarriageQuery = "INSERT INTO marriage_union(unionId, member, memberId, partner)
+						VALUES	(:_id, :member, :memberId, :partner)";
 
             try{
                 $addSpouseResult = $db_connection->prepare($addSpouseQuery);
@@ -129,7 +133,8 @@ error_reporting(E_ALL);
 	                $addMarriageResult->execute([
 		                '_id'           => null,
 		                'member'    =>  $member,
-		                'spouse'     => $spouse,
+		                'memberId'  => $results['_id'],
+		                'partner'     => $spouse
                 ])
                 ){
                     header('Location: index.php');
@@ -168,7 +173,6 @@ error_reporting(E_ALL);
 	    }
 
         public function deleteNode($db_connection){
-
             $query = "DELETE FROM tree_node 
                     WHERE _id = :_id";
 
@@ -181,11 +185,41 @@ error_reporting(E_ALL);
                     die();
                 }
                 else
-                    echo "There was an error changing the name. Please try again";
+                    echo "There was an error deleting the member. Please try again";
             }
             catch (Exception $ex){
-                echo "Error changing name." . $ex;
+                echo "Error deleting member." . $ex;
             }
+        }
+
+        public function divorceSpouse($db_connection){
+	        $results = $db_connection->query("SELECT firstName, lastName, divorcedSpouses FROM tree_node WHERE _id = {$this->id}")->fetch();
+	        $spouse = $results['firstName'] . " " . $results['lastName'];
+			$divorcedSpouses = $results['divorcedSpouses'];
+			$divorcedSpouses = $divorcedSpouses == null ? $spouse : $divorcedSpouses . ", " . $spouse;
+
+	        //CANT DO THIS BECAUSE DUPLICATE MARRIAGE UNION ROW
+	        $this->changeSpouse($db_connection);    //empty out spouse field
+	        $query = "UPDATE tree_node
+                    SET divorcedSpouses = :divorcedSpouses
+                    WHERE _id = :_id";
+
+	        try{
+		        $result = $db_connection->prepare($query);
+		        if(
+			        $result->execute([
+				        '_id'           => $this->id,
+				        'divorcedSpouses'     => $divorcedSpouses,
+			        ])) {
+				        header('Location: index.php');
+				        die();
+		        }
+		        else
+			        echo "There was an error divorcing the partner. Please try again";
+	        }
+	        catch (Exception $ex){
+		        echo "Error divorcing partner." . $ex;
+	        }
         }
     }
 
@@ -211,11 +245,86 @@ error_reporting(E_ALL);
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 	<script>
-		function submitAction(id, actionType, gen=null) {
-		    var f = document.createElement("form");
-            f.setAttribute('method',"post");
-            f.setAttribute('action',"index.php");
+        var f = document.createElement("form");
+        f.setAttribute('method',"post");
+        f.setAttribute('action',"index.php");
 
+        function submitAction(id, actionType, gen) {
+           addCommonFields(id, actionType, gen);
+
+            var l;
+            if(actionType=="child"){
+                l = displayLabel("Add a New Child", "h2");
+            }
+            else if(actionType=="spouse"){
+                l = displayLabel("Add a New Partner", "h2");
+            }
+            else if(actionType=="name"){
+                l = displayLabel("Change a Family Member Name", "h2");
+            }
+            else{
+                l = displayLabel("Add", "h2");
+            }
+
+            var first = document.createElement("input");
+            first.setAttribute('type', "text");
+            first.setAttribute('name', "firstname");
+            var firstLabel = displayLabel("First Name", "p");
+
+            var last = document.createElement("input");
+            last.setAttribute('type', "text");
+            last.setAttribute('name', "lastname");
+            var lastLabel = displayLabel("Last Name", "p");
+
+            var s = document.createElement("input");
+            s.setAttribute('type',"submit");
+            s.setAttribute('name',"submitNode");
+            s.setAttribute('value',"Submit");
+
+            f.appendChild(l);
+            f.appendChild(firstLabel);
+            f.appendChild(first);
+            f.appendChild(lastLabel);
+            f.appendChild(last);
+            f.appendChild(s);
+
+            //Add form to page
+            document.getElementById("addNode").appendChild(f);
+        }
+
+        function submitRemoveAction(id, actionType){
+            addCommonFields(id, actionType);
+
+            var s = document.createElement("input");
+            s.setAttribute('type',"submit");
+            s.setAttribute('name',"submitNode");
+            s.setAttribute('value',"Submit");
+            s.style.display= 'none';
+            f.appendChild(s);
+            document.getElementById("addNode").appendChild(f);
+
+            if(actionType == "delete"){
+                var conf = confirm("Are you sure you want to delete this member?");
+                if (conf == true) {
+                    s.click();
+                }
+            }
+            else if(actionType == "divorce"){
+                var conf = confirm("Are you sure you want to mark this partner as divorced?");
+                if (conf == true) {
+                    s.click();
+                }
+            }
+        }
+
+        function displayLabel(label, size){
+            var l = document.createElement(size);
+            var t = document.createTextNode(label);
+            l.appendChild(t);
+            return l;
+        }
+
+        function addCommonFields(id, actionType, gen=null){
             var i = document.createElement("input");
             i.setAttribute('type',"hidden");
             i.setAttribute('name',"id");
@@ -233,45 +342,12 @@ error_reporting(E_ALL);
                 generation.setAttribute('value', gen.toString());
             }
 
-
-            if(actionType != "delete") {
-                var first = document.createElement("input");
-                first.setAttribute('type', "text");
-                first.setAttribute('name', "firstname");
-
-                var last = document.createElement("input");
-                last.setAttribute('type', "text");
-                last.setAttribute('name', "lastname");
-
-                var s = document.createElement("input");
-                s.setAttribute('type',"submit");
-                s.setAttribute('name',"submitNode");
-                s.setAttribute('value',"Submit");
-
-                f.appendChild(first);
-                f.appendChild(last);
-                f.appendChild(s);
-            }
-            else{
-                var s = document.createElement("input");
-                s.setAttribute('type',"submit");
-                s.setAttribute('name',"submitNode");
-                s.setAttribute('value',"Submit");
-                f.appendChild(s);
-            }
-
             f.appendChild(i);
             f.appendChild(node);
             f.appendChild(generation);
-            document.getElementById("addNode").appendChild(f);
-
-            if(actionType == "delete"){
-                var conf = confirm("Are you sure you want to delete this member?");
-                if (conf == true) {
-                    s.click();
-                }
-            }
         }
+
+
 
 	</script>
 </head>
@@ -303,7 +379,6 @@ error_reporting(E_ALL);
             <td>Generation</td>
             <td>Parent 1 </td>
             <td>Parent 2</td>
-            <td>Add Spouse</td>
             <td>Add Child</td>
             <td>Delete</td>
         </thead>
@@ -318,8 +393,13 @@ error_reporting(E_ALL);
                     </td>
 		            <td>
                         <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'spouse', <?php echo $result['generation']?>)" >
-                            <?php if($result['spouse'] != null){echo $result['spouse'];} else{ echo "-";}?>
+                            <?php if($result['spouse'] != null && $result['spouse'] != " "){echo $result['spouse'];} else{ echo "+";}?>
                         </a>
+			            <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'divorce')">
+				            <?php if($result['spouse'] != null && $result['spouse'] != " " ){echo '<i class="fas fa-times text-secondary"></i>';}?>
+
+
+			            </a>
                     </td>
 	                <td>
                         <?php echo $result['generation']?>
@@ -331,18 +411,13 @@ error_reporting(E_ALL);
                         <?php echo $result['partner']?>
                     </td>
 	                <td>
-                        <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'spouse')">
-			                Add Spouse
-                        </a>
-                    </td>
-	                <td>
                         <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'child', <?php echo $result['generation']?>)">
 			                Add Child
                         </a>
                     </td>
                     <td class="text-center">
-                        <a class="text-secondary" href="#" onclick="submitAction(<?php echo $result['_id']?>, 'delete')">
-                            <i class="fas fa-trash-alt"></i>
+                        <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'delete')">
+                            <i class="fas fa-trash-alt text-secondary"></i>
                         </a>
                     </td>
 	            </tr>
