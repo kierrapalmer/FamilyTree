@@ -1,16 +1,16 @@
 <!--TODO:
-Try for bootstrap modals: https://stackoverflow.com/questions/47544251/how-to-pass-id-to-the-bootstrap-modal
+Try for bootstrap modals: https://stackoverflow.com/questions/26118039/passing-multiple-datas-through-bootstrap-modal
 Add support for single parents
 Finish styles
 -->
 <?php
+session_start();
 ini_set('display_errors', 'On');
 error_reporting(E_ALL);
 
     require_once("db_config.php");
 
     /*--- User Account ---*/
-    session_start();
     if(isset($_SESSION["uId"])) {
         $id = $_SESSION["uId"];
         $query = "SELECT *
@@ -427,9 +427,8 @@ error_reporting(E_ALL);
                         <?php echo $result['partner']?>
                     </td>
 	                <td>
-                        <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'child', <?php echo $result['generation']?>)">
-			                Add Child
-                        </a>
+                        <a data-toggle="modal" data-id="{'actionType':'name', '_id': <?php echo $result['_id']?>, 'gen': <?php echo $result['generation']?>}"
+                           href="#modalRegisterForm" class="user_dialog">Add</a>
                     </td>
                     <td class="text-center">
                         <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'delete')">
@@ -456,6 +455,16 @@ error_reporting(E_ALL);
 <a href="" class="btn btn-default btn-rounded mb-4" data-toggle="modal" data-target="#modalRegisterForm">Launch Modal Register Form</a>
 
 <!--Add Node/Spouse Modal-->
+<script>
+    $(document).on("click", ".user_dialog", function () {
+        var id = $(this).data('id')._id;
+        var actionType = $(this).data('id').actionType;
+        var gen = $(this).data('id').gen;
+        $(".modal-body #id").val( id );
+        $(".modal-body #actionType").val( actionType );
+        $(".modal-body #generation").val( gen );
+    });
+</script>
 <div class="modal fade" id="modalRegisterForm" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
 	<div class="modal-dialog" role="document">
 		<div class="modal-content">
@@ -476,6 +485,16 @@ error_reporting(E_ALL);
 					<label data-error="wrong" data-success="right" for="lastname">Last Name</label>
 					<input type="text" id="lastname" class="form-control validate">
 				</div>
+
+                <div class="md-form">
+                    <input type="text" id="id">
+                </div>
+                <div class="md-form">
+                    <input type="text" id="generation">
+                </div>
+                <div class="md-form">
+                    <input type="text" id="actionType">
+                </div>
 
 			</div>
 			<div class="modal-footer d-flex justify-content-center">
