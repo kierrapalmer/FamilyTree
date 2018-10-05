@@ -28,15 +28,6 @@ SET time_zone = "+00:00";
 -- Table structure for table `tree_node`
 --
 
-CREATE TABLE `tree_node` (
-  `_id` int(11) NOT NULL,
-  `firstName` varchar(50) DEFAULT NULL,
-  `lastName` varchar(50) DEFAULT NULL,
-  `generation` int(11) NOT NULL,
-  `spouse` varchar(50) DEFAULT NULL,
-  `parentId` int(11) DEFAULT NULL,
-  `parentMarriageId` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 --
 -- Dumping data for table `tree_node`
@@ -57,8 +48,7 @@ INSERT INTO `tree_node` (`_id`, `firstName`, `lastName`, `generation`, `spouse`,
 --
 -- Indexes for table `tree_node`
 --
-ALTER TABLE `tree_node`
-  ADD PRIMARY KEY (`_id`);
+
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -67,9 +57,7 @@ ALTER TABLE `tree_node`
 --
 -- AUTO_INCREMENT for table `tree_node`
 --
-ALTER TABLE `tree_node`
-  MODIFY `_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
-COMMIT;
+
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

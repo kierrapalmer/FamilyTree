@@ -1,12 +1,50 @@
-a{
-    color: black;
+html, body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: linear-gradient(45deg, #49a09d, #5f2c82);
+    font-family: sans-serif;
+    font-weight: 100;
+}
+
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+}
+
+th, td {
+    padding: 15px;
+    background-color: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+th {
+    text-align: left;
+}
+
+thead th {
+        background-color: #55608f;
+}
+table a{
+    color: white;
+
+}
+table a:hover{
     text-decoration: none;
 }
 
-ul{
-    list-style-type: none;
-    position: absolute;
+tbody tr:hover {
+     background-color: rgba(255,255,255,0.3);
 }
-li{
-    position: absolute;
+
+
+
+a{
+    color: black;
+    text-decoration: none;
 }

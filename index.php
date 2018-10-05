@@ -1,3 +1,8 @@
+<!--TODO:
+Try for bootstrap modals: https://stackoverflow.com/questions/47544251/how-to-pass-id-to-the-bootstrap-modal
+Add support for single parents
+Finish styles
+-->
 <?php
 ini_set('display_errors', 'On');
 error_reporting(E_ALL);
@@ -22,7 +27,7 @@ error_reporting(E_ALL);
     $q->execute();
     $r = $q->fetchAll();
     $count = count($r);
-    $results = $db_connection->query("SELECT * FROM tree_node t LEFT JOIN marriage_union m ON t.parentMarriageId = m.unionId ORDER BY t._id, m.member");
+    $results = $db_connection->query("SELECT * FROM tree_node t LEFT JOIN marriage_union m ON t.parentMarriageId = m.unionId ORDER BY t.generation, m.memberId");
 
 
 
@@ -32,7 +37,7 @@ error_reporting(E_ALL);
         $id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
         $actionType = filter_var($_POST['actionType'], FILTER_SANITIZE_STRING);
 
-        if($actionType != "delete") {
+        if($actionType != "delete" && $actionType != "divorce") {
             $first = filter_var($_POST['firstname'], FILTER_SANITIZE_STRING);
             $last = filter_var($_POST['lastname'], FILTER_SANITIZE_STRING);
             $generation = filter_var($_POST['generation'], FILTER_SANITIZE_STRING);
@@ -84,8 +89,11 @@ error_reporting(E_ALL);
 		}
 
 		public function addNode($db_connection){
-            $results = $db_connection->query("SELECT * FROM marriage_union WHERE memberId = {$this->parentId}")->fetch();     //get marriage union id for childs parent
-            $parentMarriageId = $results['unionId'] . "";
+            $results = $db_connection->query("SELECT * FROM marriage_union WHERE memberId = {$this->parentId}  AND isActive = 1")->fetch();     //get marriage union id for childs parent
+            if($results['unionId'] != null)
+                $parentMarriageId = $results['unionId'] . "";
+            else
+                $parentMarriageId = null;
 
             $query = "INSERT INTO tree_node (_id, firstName, lastName, generation, parentMarriageId)
                   VALUES(:_id, :firstName, :lastName, :generation, :parentMarriageId)";
@@ -119,8 +127,8 @@ error_reporting(E_ALL);
                     SET spouse = :spouse
                     WHERE _id = :_id";
 
-            $addMarriageQuery = "INSERT INTO marriage_union(unionId, member, memberId, partner)
-						VALUES	(:_id, :member, :memberId, :partner)";
+            $addMarriageQuery = "INSERT INTO marriage_union(unionId, member, memberId, partner, isActive)
+						VALUES	(:_id, :member, :memberId, :partner, 1)";
 
             try{
                 $addSpouseResult = $db_connection->prepare($addSpouseQuery);
@@ -134,7 +142,7 @@ error_reporting(E_ALL);
 		                '_id'           => null,
 		                'member'    =>  $member,
 		                'memberId'  => $results['_id'],
-		                'partner'     => $spouse
+		                'partner'     => $spouse,
                 ])
                 ){
                     header('Location: index.php');
@@ -149,10 +157,15 @@ error_reporting(E_ALL);
         }
 
 	    public function changeName($db_connection){
+	        $name = $this->first . " " . $this->last;
 		    $query = "UPDATE tree_node 
                     SET firstName = :first,
                     lastName = :last
-                    WHERE _id = :_id";
+                    WHERE _id = :_id;
+                    
+                    UPDATE marriage_union
+                    SET member = :member
+                    WHERE memberId = :_id";
 
 		    try{
 			    $result = $db_connection->prepare($query);
@@ -160,6 +173,7 @@ error_reporting(E_ALL);
 				    '_id'           => $this->id,
 				    'first'     => $this->first,
 				    'last'     => $this->last,
+                    'member'    => $name
 			    ])){
 				    header('Location: index.php');
 				    die();
@@ -192,34 +206,35 @@ error_reporting(E_ALL);
             }
         }
 
-        public function divorceSpouse($db_connection){
-	        $results = $db_connection->query("SELECT firstName, lastName, divorcedSpouses FROM tree_node WHERE _id = {$this->id}")->fetch();
-	        $spouse = $results['firstName'] . " " . $results['lastName'];
-			$divorcedSpouses = $results['divorcedSpouses'];
-			$divorcedSpouses = $divorcedSpouses == null ? $spouse : $divorcedSpouses . ", " . $spouse;
+        public function divorceSpouse($db_connection)
+        {
+            $results = $db_connection->query("SELECT spouse, divorcedSpouses FROM tree_node WHERE _id = {$this->id}")->fetch();
+            $spouse = $results['spouse'];
+            $divorcedSpouses = $results['divorcedSpouses'];
+            $divorcedSpouses = $divorcedSpouses == null ? $spouse . "(d)" : $divorcedSpouses . ", " . $spouse . "(d)";
 
-	        //CANT DO THIS BECAUSE DUPLICATE MARRIAGE UNION ROW
-	        $this->changeSpouse($db_connection);    //empty out spouse field
-	        $query = "UPDATE tree_node
-                    SET divorcedSpouses = :divorcedSpouses
-                    WHERE _id = :_id";
+            $query = "UPDATE tree_node
+                    SET divorcedSpouses = :divorcedSpouses,
+                    spouse = null
+                    WHERE _id = :_id;
+                    
+                    UPDATE marriage_union        
+                    SET isActive = 0
+                    WHERE memberId = :_id"; //sets all specified member marriage union to inactive
 
-	        try{
-		        $result = $db_connection->prepare($query);
-		        if(
-			        $result->execute([
-				        '_id'           => $this->id,
-				        'divorcedSpouses'     => $divorcedSpouses,
-			        ])) {
-				        header('Location: index.php');
-				        die();
-		        }
-		        else
-			        echo "There was an error divorcing the partner. Please try again";
-	        }
-	        catch (Exception $ex){
-		        echo "Error divorcing partner." . $ex;
-	        }
+            try {
+                $result = $db_connection->prepare($query);
+                if ($result->execute([
+                    '_id' => $this->id,
+                    'divorcedSpouses' => $divorcedSpouses,
+                ])) {
+                    header('Location: index.php');
+                    die();
+                } else
+                    echo "There was an error divorcing the partner. Please try again";
+            } catch (Exception $ex) {
+                echo "Error divorcing partner." . $ex;
+            }
         }
     }
 
@@ -364,42 +379,43 @@ error_reporting(E_ALL);
 
 </nav>
 
-<main id="main">
+<main id="main container">
     <?php if($count == 0){?>
         <button class="btn root" id="addRootBtn" onclick="addNode(0, 0, 'root')"> + Add Root Member</button>
     <?php }	?>
 
 
 
-    <table border="1">
+    <table>
         <thead>
-            <td>Id</td>
-            <td>Name</td>
-            <td>Spouse</td>
-            <td>Generation</td>
-            <td>Parent 1 </td>
-            <td>Parent 2</td>
-            <td>Add Child</td>
-            <td>Delete</td>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Spouse</th>
+            <th>Generation</th>
+            <th>Parent 1 </th>
+            <th>Parent 2</th>
+            <th>Add Child</th>
+            <th>Delete</th>
         </thead>
         <?php
 	        foreach($results as $result) {	?>
 	            <tr>
 	                <td><?php echo $result['_id']?></td>
 		            <td>
+                        <?php echo $result['firstName'] . " " . $result['lastName']?>
                         <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'name', <?php echo $result['generation']?>)" >
-				            <?php echo $result['firstName'] . " " . $result['lastName']?>
+                            <i class="far fa-edit"></i>
                         </a>
                     </td>
 		            <td>
+                        <?php echo $result['spouse']?>
                         <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'spouse', <?php echo $result['generation']?>)" >
-                            <?php if($result['spouse'] != null && $result['spouse'] != " "){echo $result['spouse'];} else{ echo "+";}?>
+                            <?php if($result['spouse'] != null && $result['spouse'] != " "){echo '<i class="far fa-edit"></i>';} else{ echo '<i class="fas fa-plus"></i>';}?>
                         </a>
 			            <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'divorce')">
-				            <?php if($result['spouse'] != null && $result['spouse'] != " " ){echo '<i class="fas fa-times text-secondary"></i>';}?>
-
-
-			            </a>
+				            <?php if($result['spouse'] != null && $result['spouse'] != " " ){echo '<i class="fas fa-times text-danger"></i>';}?>
+			            </a><br />
+                        <?php echo $result['divorcedSpouses']?>
                     </td>
 	                <td>
                         <?php echo $result['generation']?>
@@ -417,7 +433,7 @@ error_reporting(E_ALL);
                     </td>
                     <td class="text-center">
                         <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'delete')">
-                            <i class="fas fa-trash-alt text-secondary"></i>
+                            <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
 	            </tr>
@@ -439,7 +455,7 @@ error_reporting(E_ALL);
 
 <a href="" class="btn btn-default btn-rounded mb-4" data-toggle="modal" data-target="#modalRegisterForm">Launch Modal Register Form</a>
 
-<!--Add Node/Spouse Modal
+<!--Add Node/Spouse Modal-->
 <div class="modal fade" id="modalRegisterForm" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
 	<div class="modal-dialog" role="document">
 		<div class="modal-content">
@@ -469,6 +485,6 @@ error_reporting(E_ALL);
 		</div>
 	</div>
 </div>
--->
+
 </body>
 </html>
