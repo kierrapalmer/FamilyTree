@@ -1,38 +1,31 @@
-<!--TODO:
-Try for bootstrap modals: https://stackoverflow.com/questions/26118039/passing-multiple-datas-through-bootstrap-modal
-Add support for single parents
-Finish styles
--->
 <?php
 session_start();
-ini_set('display_errors', 'On');
-error_reporting(E_ALL);
+//ini_set('display_errors', 'On');
+//error_reporting(E_ALL);
 
     require_once("db_config.php");
+    require_once("node.php");
 
     /*--- User Account ---*/
     if(isset($_SESSION["uId"])) {
         $id = $_SESSION["uId"];
-        $query = "SELECT *
-                      FROM user
-                      WHERE id = '{$id}'";
+        $query = "SELECT * FROM user WHERE id = '{$id}'";
         $row = $db_connection->query($query)->fetch();
     }else{
         header('Location: sign_in.php');
         die();
     }
 
-    /*--- Select All Nodes and marriages---*/
+	/*--- Count how many nodes/children---*/
     $q = $db_connection->prepare("SELECT * FROM tree_node");
     $q->execute();
     $r = $q->fetchAll();
     $count = count($r);
-    $results = $db_connection->query("SELECT * FROM tree_node t LEFT JOIN marriage_union m ON t.parentMarriageId = m.unionId ORDER BY t.generation, m.memberId");
 
+	/*--- Select All Nodes and marriages---*/
+	$results = $db_connection->query("SELECT * FROM tree_node t LEFT JOIN marriage_union m ON t.parentMarriageId = m.unionId ORDER BY t.generation, m.memberId");
 
-
-
-/*--- Add Node Post Submission ---*/
+	/*--- Add Node Post Submission ---*/
     if(isset($_POST['submitNode'])){
         $id = filter_var($_POST['id'], FILTER_SANITIZE_STRING);
         $actionType = filter_var($_POST['actionType'], FILTER_SANITIZE_STRING);
@@ -43,201 +36,35 @@ error_reporting(E_ALL);
             $generation = filter_var($_POST['generation'], FILTER_SANITIZE_STRING);
         }
 
-        if($actionType == "spouse") {                                                   //Add/Change Spouse
-            $node = new Node($id, $first, $last, null, null);
-            $node -> changeSpouse($db_connection);
-        }
-        elseif ($actionType == "child"){                                                //Add Node
-        	$generation++;
-            $node = new Node(null, $first, $last, $generation, $id);                //set parentMarriageId to incoming id
-            $node -> addNode($db_connection);
-        }
-        elseif($actionType == "root"){                                                  //Add Root Node
-	        $node = new Node(null, $first, $last, $generation, null);
-	        $node -> addNode($db_connection);
-        }
-        elseif($actionType == "name"){                                                  //Change Name
-	        $node = new Node($id, $first, $last, $generation, null);
-	        $node -> changeName($db_connection);
-        }
-        elseif($actionType == "delete"){                                                 //Delete Node
-            $node = new Node($id, null, null, null, null);
-            $node -> deleteNode($db_connection);
-        }
-        elseif($actionType == "divorce"){
-	        $node = new Node($id, null, null, null, null);
-	        $node -> divorceSpouse($db_connection);
+        switch($actionType){
+	        case "root":
+		        $node = new Node(null, $first, $last, $generation, null);
+		        $node -> addRoot($db_connection);
+		        break;
+	        case "child":
+		        $generation++;
+		        $node = new Node(null, $first, $last, $generation, $id);                //set parentMarriageId to incoming id
+		        $node -> addChild($db_connection);
+		        break;
+	        case "spouse":
+		        $node = new Node($id, $first, $last, null, null);
+		        $node -> changeSpouse($db_connection);
+		        break;
+	        case "name":
+		        $node = new Node($id, $first, $last, $generation, null);
+		        $node -> changeName($db_connection);
+		        break;
+	        case "delete":
+		        $node = new Node($id, null, null, null, null);
+		        $node -> deleteNode($db_connection);
+		        break;
+	        case "divorce":
+		        $node = new Node($id, null, null, null, null);
+		        $node -> divorceSpouse($db_connection);
+		        break;
         }
 
     }
-
-
-    /*--- Node Class ---*/
-    class Node {
-	    public $id;
-	    public $first;
-	    public $last;
-	    public $generation;
-	    public $parentId;
-
-	    public function __construct($id, $first, $last, $generation, $parentId){
-            $this->id = $id;
-            $this->first = $first;
-			$this->last = $last;
-			$this->generation = $generation;
-			$this->parentId = $parentId;
-		}
-
-		public function addNode($db_connection){
-            $results = $db_connection->query("SELECT * FROM marriage_union WHERE memberId = {$this->parentId}  AND isActive = 1")->fetch();     //get marriage union id for childs parent
-            if($results['unionId'] != null)
-                $parentMarriageId = $results['unionId'] . "";
-            else
-                $parentMarriageId = null;
-
-            $query = "INSERT INTO tree_node (_id, firstName, lastName, generation, parentMarriageId)
-                  VALUES(:_id, :firstName, :lastName, :generation, :parentMarriageId)";
-
-            try{
-                $result = $db_connection->prepare($query);
-                if($result->execute([
-                    '_id'           => $this->id,
-                    'firstName'     => $this->first,
-                    'lastName'      => $this->last,
-                    'generation'    => $this->generation,
-                    'parentMarriageId' =>  $parentMarriageId
-                ])){
-                    header('Location: index.php');
-                    die();
-                }
-                else
-                    echo "There was an error adding the member. Please try again";
-            }
-            catch (Exception $ex){
-                echo "Error adding member." . $ex;
-            }
-        }
-
-        public function changeSpouse($db_connection){
-	        $results = $db_connection->query("SELECT _id, firstName, lastName FROM tree_node WHERE _id = {$this->id}")->fetch();
-            $member = $results['firstName'] . " " . $results['lastName'];
-	        $spouse = $this->first . " " . $this->last;
-
-	        $addSpouseQuery = "UPDATE tree_node
-                    SET spouse = :spouse
-                    WHERE _id = :_id";
-
-            $addMarriageQuery = "INSERT INTO marriage_union(unionId, member, memberId, partner, isActive)
-						VALUES	(:_id, :member, :memberId, :partner, 1)";
-
-            try{
-                $addSpouseResult = $db_connection->prepare($addSpouseQuery);
-	            $addMarriageResult = $db_connection->prepare($addMarriageQuery);
-                if(
-	                $addSpouseResult->execute([
-	                    '_id'           => $this->id,
-	                    'spouse'     => $spouse,
-                ]) AND
-	                $addMarriageResult->execute([
-		                '_id'           => null,
-		                'member'    =>  $member,
-		                'memberId'  => $results['_id'],
-		                'partner'     => $spouse,
-                ])
-                ){
-                    header('Location: index.php');
-                    die();
-                }
-                else
-                    echo "There was an error adding the spouse. Please try again";
-            }
-            catch (Exception $ex){
-                echo "Error adding spouse." . $ex;
-            }
-        }
-
-	    public function changeName($db_connection){
-	        $name = $this->first . " " . $this->last;
-		    $query = "UPDATE tree_node 
-                    SET firstName = :first,
-                    lastName = :last
-                    WHERE _id = :_id;
-                    
-                    UPDATE marriage_union
-                    SET member = :member
-                    WHERE memberId = :_id";
-
-		    try{
-			    $result = $db_connection->prepare($query);
-			    if($result->execute([
-				    '_id'           => $this->id,
-				    'first'     => $this->first,
-				    'last'     => $this->last,
-                    'member'    => $name
-			    ])){
-				    header('Location: index.php');
-				    die();
-			    }
-			    else
-				    echo "There was an error changing the name. Please try again";
-		    }
-		    catch (Exception $ex){
-			    echo "Error changing name." . $ex;
-		    }
-	    }
-
-        public function deleteNode($db_connection){
-            $query = "DELETE FROM tree_node 
-                    WHERE _id = :_id";
-
-            try{
-                $result = $db_connection->prepare($query);
-                if($result->execute([
-                    '_id'           => $this->id,
-                ])){
-                    header('Location: index.php');
-                    die();
-                }
-                else
-                    echo "There was an error deleting the member. Please try again";
-            }
-            catch (Exception $ex){
-                echo "Error deleting member." . $ex;
-            }
-        }
-
-        public function divorceSpouse($db_connection)
-        {
-            $results = $db_connection->query("SELECT spouse, divorcedSpouses FROM tree_node WHERE _id = {$this->id}")->fetch();
-            $spouse = $results['spouse'];
-            $divorcedSpouses = $results['divorcedSpouses'];
-            $divorcedSpouses = $divorcedSpouses == null ? $spouse . "(d)" : $divorcedSpouses . ", " . $spouse . "(d)";
-
-            $query = "UPDATE tree_node
-                    SET divorcedSpouses = :divorcedSpouses,
-                    spouse = null
-                    WHERE _id = :_id;
-                    
-                    UPDATE marriage_union        
-                    SET isActive = 0
-                    WHERE memberId = :_id"; //sets all specified member marriage union to inactive
-
-            try {
-                $result = $db_connection->prepare($query);
-                if ($result->execute([
-                    '_id' => $this->id,
-                    'divorcedSpouses' => $divorcedSpouses,
-                ])) {
-                    header('Location: index.php');
-                    die();
-                } else
-                    echo "There was an error divorcing the partner. Please try again";
-            } catch (Exception $ex) {
-                echo "Error divorcing partner." . $ex;
-            }
-        }
-    }
-
 
 ?>
 
@@ -260,108 +87,6 @@ error_reporting(E_ALL);
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 	<script>
-        var f = document.createElement("form");
-        f.setAttribute('method',"post");
-        f.setAttribute('action',"index.php");
-
-        function submitAction(id, actionType, gen) {
-           addCommonFields(id, actionType, gen);
-
-            var l;
-            if(actionType=="child"){
-                l = displayLabel("Add a New Child", "h2");
-            }
-            else if(actionType=="spouse"){
-                l = displayLabel("Add a New Partner", "h2");
-            }
-            else if(actionType=="name"){
-                l = displayLabel("Change a Family Member Name", "h2");
-            }
-            else{
-                l = displayLabel("Add", "h2");
-            }
-
-            var first = document.createElement("input");
-            first.setAttribute('type', "text");
-            first.setAttribute('name', "firstname");
-            var firstLabel = displayLabel("First Name", "p");
-
-            var last = document.createElement("input");
-            last.setAttribute('type', "text");
-            last.setAttribute('name', "lastname");
-            var lastLabel = displayLabel("Last Name", "p");
-
-            var s = document.createElement("input");
-            s.setAttribute('type',"submit");
-            s.setAttribute('name',"submitNode");
-            s.setAttribute('value',"Submit");
-
-            f.appendChild(l);
-            f.appendChild(firstLabel);
-            f.appendChild(first);
-            f.appendChild(lastLabel);
-            f.appendChild(last);
-            f.appendChild(s);
-
-            //Add form to page
-            document.getElementById("addNode").appendChild(f);
-        }
-
-        function submitRemoveAction(id, actionType){
-            addCommonFields(id, actionType);
-
-            var s = document.createElement("input");
-            s.setAttribute('type',"submit");
-            s.setAttribute('name',"submitNode");
-            s.setAttribute('value',"Submit");
-            s.style.display= 'none';
-            f.appendChild(s);
-            document.getElementById("addNode").appendChild(f);
-
-            if(actionType == "delete"){
-                var conf = confirm("Are you sure you want to delete this member?");
-                if (conf == true) {
-                    s.click();
-                }
-            }
-            else if(actionType == "divorce"){
-                var conf = confirm("Are you sure you want to mark this partner as divorced?");
-                if (conf == true) {
-                    s.click();
-                }
-            }
-        }
-
-        function displayLabel(label, size){
-            var l = document.createElement(size);
-            var t = document.createTextNode(label);
-            l.appendChild(t);
-            return l;
-        }
-
-        function addCommonFields(id, actionType, gen=null){
-            var i = document.createElement("input");
-            i.setAttribute('type',"hidden");
-            i.setAttribute('name',"id");
-            i.setAttribute('value', id.toString());
-
-            var node = document.createElement("input");
-            node.setAttribute('type',"hidden");
-            node.setAttribute('name',"actionType");
-            node.setAttribute('value', actionType.toString());
-
-            var generation = document.createElement("input");
-            generation.setAttribute('type', "hidden");
-            generation.setAttribute('name', "generation");
-            if(gen != null) {
-                generation.setAttribute('value', gen.toString());
-            }
-
-            f.appendChild(i);
-            f.appendChild(node);
-            f.appendChild(generation);
-        }
-
 
 
 	</script>
@@ -373,15 +98,23 @@ error_reporting(E_ALL);
     <div class="navbar-nav">
     </div>
     <div class="navbar-nav ml-auto">
-            <a class="nav-link" href="" data-target="#myModal" data-toggle="modal">Hello <?php echo $row["firstName"]?></a>
-            <a class="nav-link" href="" data-target="#myModal" data-toggle="modal">Sign out</a>
+            <a class="nav-link" href="#">Welcome <?php echo $row["firstName"]?></a>
+            <a class="nav-link" href="logout.php">Sign out</a>
     </div>
 
 </nav>
 
 <main id="main container">
+<!--	Only show if there are no members in database-->
     <?php if($count == 0){?>
-        <button class="btn root" id="addRootBtn" onclick="addNode(0, 0, 'root')"> + Add Root Member</button>
+	<a data-toggle="modal"
+	   data-act="root"
+	   data-id="0"
+	   data-gen = "0"
+	   href="#modalActionForm"
+	   id="root"
+	   class="user_dialog btn">
+		+ Add Root Member</a>
     <?php }	?>
 
 
@@ -390,7 +123,7 @@ error_reporting(E_ALL);
         <thead>
             <th>Id</th>
             <th>Name</th>
-            <th>Spouse</th>
+            <th>Partner</th>
             <th>Generation</th>
             <th>Parent 1 </th>
             <th>Parent 2</th>
@@ -403,17 +136,34 @@ error_reporting(E_ALL);
 	                <td><?php echo $result['_id']?></td>
 		            <td>
                         <?php echo $result['firstName'] . " " . $result['lastName']?>
-                        <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'name', <?php echo $result['generation']?>)" >
-                            <i class="far fa-edit"></i>
+			            <a data-toggle="modal"
+			               data-act="name"
+			               data-id="<?php echo $result['_id']?>"
+			               data-gen = "<?php echo $result['generation']?>"
+			               href="#modalActionForm" class="user_dialog">
+				                <i class="far fa-edit"></i>
                         </a>
                     </td>
 		            <td>
                         <?php echo $result['spouse']?>
-                        <a href="#" onclick="submitAction(<?php echo $result['_id']?>, 'spouse', <?php echo $result['generation']?>)" >
-                            <?php if($result['spouse'] != null && $result['spouse'] != " "){echo '<i class="far fa-edit"></i>';} else{ echo '<i class="fas fa-plus"></i>';}?>
+			            <a data-toggle="modal"
+			               data-act="spouse"
+			               data-id="<?php echo $result['_id']?>"
+			               data-gen = "<?php echo $result['generation']?>"
+			               href="#modalActionForm" class="user_dialog">
+				            <?php
+					            if($result['spouse'] != null && $result['spouse'] != " ")
+				                    {echo '<i class="far fa-edit"></i>';}
+				                else{ echo '<i class="fas fa-plus"></i>';}?>
                         </a>
-			            <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'divorce')">
-				            <?php if($result['spouse'] != null && $result['spouse'] != " " ){echo '<i class="fas fa-times text-danger"></i>';}?>
+
+			            <a data-toggle="modal"
+			               data-act="divorce"
+			               data-id="<?php echo $result['_id']?>"
+			               data-gen = "<?php echo $result['generation']?>"
+			               href="#modalActionForm" class="user_dialog">
+				            <?php if($result['spouse'] != null && $result['spouse'] != " " )
+				                {echo '<i class="fas fa-times text-danger"></i>';}?>
 			            </a><br />
                         <?php echo $result['divorcedSpouses']?>
                     </td>
@@ -427,11 +177,18 @@ error_reporting(E_ALL);
                         <?php echo $result['partner']?>
                     </td>
 	                <td>
-                        <a data-toggle="modal" data-id="{'actionType':'name', '_id': <?php echo $result['_id']?>, 'gen': <?php echo $result['generation']?>}"
-                           href="#modalRegisterForm" class="user_dialog">Add</a>
+                        <a data-toggle="modal"
+                           data-act="child"
+		                    data-id="<?php echo $result['_id']?>"
+		                    data-gen = "<?php echo $result['generation']?>"
+                            href="#modalActionForm" class="user_dialog">Add Child</a>
                     </td>
                     <td class="text-center">
-                        <a href="#" onclick="submitRemoveAction(<?php echo $result['_id']?>, 'delete')">
+	                    <a data-toggle="modal"
+	                       data-act="delete"
+	                       data-id="<?php echo $result['_id']?>"
+	                       data-gen = "<?php echo $result['generation']?>"
+	                       href="#modalActionForm" class="user_dialog">
                             <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
@@ -441,35 +198,60 @@ error_reporting(E_ALL);
     <div id="addNode"></div>
 
 </main>
-<!--
-<div>
-    <ul id="tree">
-
-    </ul>
-</div>
 
 
-<script src="scripts.js"></script>
-
-
-<a href="" class="btn btn-default btn-rounded mb-4" data-toggle="modal" data-target="#modalRegisterForm">Launch Modal Register Form</a>
-
-<!--Add Node/Spouse Modal-->
+<!--Add Node/Spouse Modal Javascript-->
 <script>
     $(document).on("click", ".user_dialog", function () {
-        var id = $(this).data('id')._id;
-        var actionType = $(this).data('id').actionType;
-        var gen = $(this).data('id').gen;
+        let id = $(this).data('id');
+        let actionType = $(this).data('act');
+        let gen = $(this).data('gen');
         $(".modal-body #id").val( id );
         $(".modal-body #actionType").val( actionType );
         $(".modal-body #generation").val( gen );
+
+		switch(actionType){
+			case "child":
+                $(".modal-content #modal-title").text( "Add a New Child" );
+				break;
+			case "spouse":
+                $(".modal-content #modal-title").text( "Add a New Partner" );
+				break;
+            case "name":
+                $(".modal-content #modal-title").text( "Change Name of Member" );
+                break;
+            case "root":
+                $(".modal-content #modal-title").text( "Add First Member of Family Tree" );
+                break;
+            case "delete":
+                onRemoveDelete();
+                $( "#submit" ).attr( "id", "remove" );
+                $(".modal-content #modal-title").text( "Remove Member" );
+                $(".modal-body #deleteMessage").text( "Are you sure you would like to remove this member?" );
+                break;
+            case "divorce":
+                onRemoveDelete();
+                $( "#submit" ).attr( "id", "remove" );
+                $(".modal-content #modal-title").text( "Remove Partner" );
+                $(".modal-body #deleteMessage").text( "Are you sure you would like to remove this partner?" );
+                break;
+        }
     });
+
+	function onRemoveDelete(){
+        $(".modal-body #first").hide();
+        $(".modal-body #last").hide();
+
+        $(".modal-content #submit").val( "Remove" );
+    }
 </script>
-<div class="modal fade" id="modalRegisterForm" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+
+<!--Add Node/Spouse Modal-->
+<div class="modal fade" id="modalActionForm" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
 	<div class="modal-dialog" role="document">
 		<div class="modal-content">
-			<div class="modal-header text-center">
-				<h4 class="modal-title w-100 font-weight-bold">Add Member</h4>
+			<div class="modal-header text-center ">
+				<h4 id="modal-title" class="modal-title w-100 font-weight-bold">Add Member</h4>
 				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
 					<span aria-hidden="true">&times;</span>
 				</button>
@@ -477,28 +259,30 @@ error_reporting(E_ALL);
 
 			<form action="index.php" method="post">
 			<div class="modal-body">
-				<div class="md-form">
+				<div id="deleteMessage" class="text-center"></div>
+				<div class="md-form" id="first">
 					<label data-error="wrong" data-success="right" for="firstname">First Name</label>
-					<input type="text" id="firstname" class="form-control validate">
+					<input type="text" id="firstname" name="firstname" class="form-control validate">
 				</div>
-				<div class="md-form">
+				<div class="md-form" id="last">
 					<label data-error="wrong" data-success="right" for="lastname">Last Name</label>
-					<input type="text" id="lastname" class="form-control validate">
+					<input type="text" id="lastname" name="lastname" class="form-control validate">
 				</div>
 
                 <div class="md-form">
-                    <input type="text" id="id">
+                    <input type="hidden" name="id" id="id">
                 </div>
                 <div class="md-form">
-                    <input type="text" id="generation">
+                    <input type="hidden" name="generation" id="generation">
                 </div>
                 <div class="md-form">
-                    <input type="text" id="actionType">
+                    <input type="hidden" name="actionType" id="actionType">
                 </div>
 
 			</div>
-			<div class="modal-footer d-flex justify-content-center">
-				<input type="submit" class="btn btn-deep-orange">
+			<div class="d-flex justify-content-center mb-2" id="modal-footer">
+				<input type="button" name="cancel" id="cancel" value="Cancel" onclick="location.reload()" class="btn" />
+				<input type="submit" id="submit" name="submitNode" class="btn">
 			</div>
 			</form>
 		</div>

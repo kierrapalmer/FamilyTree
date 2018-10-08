@@ -39,18 +39,25 @@ if(isset($_POST['loginUser'])){
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
           integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+	<link href="https://fonts.googleapis.com/css?family=Lato|Montserrat" rel="stylesheet">
 
 </head>
 <body>
 
-<h1>Sign In</h1>
+<div class="box">
+<h1 class="text-center">Sign In</h1>
 <form action="sign_in.php" method="post">
-    Username: <input type="text" name="email"></br>
-    Password: <input type="text" name="password"></br>
-    <a href="create_account.php">Create a new account</a></br>
-    <button type="submit" name="loginUser" class="btn btn-success">Sign in</button>
-</form>
+    <small>Email Address: </small> <input class="form-control" id="email" type="text" name="email">
+	<small>Password:</small> <input class="form-control mb-3" type="password" name="password">
+	<button type="submit" name="loginUser" class="btn btn-success float-right">Sign in</button>
 
+	<div class="line">
+		  <span>or </span>
+	</div>
+	<br>
+    <a href="create_account.php" class="create pt-4 text-center">Create a new account</a>
+</form>
+</div>
 
 <script src="scripts.js"></script>
 

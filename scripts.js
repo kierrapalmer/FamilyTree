@@ -1,4 +1,5 @@
-//Note: numChildren includes spouses
+//Cody Squadroni - IGNORE THIS
+//tree display- work in progress
 let tree =[
     {
         name: "Parent",

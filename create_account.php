@@ -37,43 +37,29 @@
 <head>
     <meta charset="UTF-8">
     <title>Create a Record</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+	<link rel="stylesheet" href="styles.css">
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
           integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
 </head>
 
 <body>
 
 <br>
-<div class="container">
-    <h1>Add a new user</h1>
+<div class="box">
+    <h1 class="text-center">Create Account</h1>
     <form method="post" action="create_account.php">
-        <div class="form-group row">
-            <label for="author" class="col-sm-2 col-form-label">Email</label>
-            <div class="col-sm-10">
-                <input type="text" class="form-control" id="email" name="email" value="">
-            </div>
-        </div>
-        <div class="form-group row">
-            <label for="genre" class="col-sm-2 col-form-label">Password</label>
-            <div class="col-sm-10">
-                <input type="text" class="form-control" id="password" name="password" value="">
-            </div>
-        </div>
-        <div class="form-group row">
-            <label for="height" class="col-sm-2 col-form-label">First Name</label>
-            <div class="col-sm-10">
-                <input type="text" class="form-control" id="firstname" name="firstname" value="">
-            </div>
-        </div>
-        <div class="form-group row">
-            <label for="publisher" class="col-sm-2 col-form-label">Last Name</label>
-            <div class="col-sm-10">
-                <input type="text" class="form-control" id="lastname" name="lastname" value="">
-            </div>
-        </div>
-
-        <button type="submit" name="createUser" class="btn btn-success">Create User</button>
-
+	    <div class="form-group">
+	    <small>Email Address: </small> <input class="form-control" type="email" name="email">
+	    <small>Password:</small> <input class="form-control" type="password" name="password">
+	    <small>First Name: </small> <input class="form-control" type="text" name="firstname">
+	    <small>Last Name:</small> <input class="form-control" type="text" name="lastname">
+	    <button type="submit" name="createUser" class="btn btn-success float-right">Create User</button>
+	    </div>
+	    <div class="line">
+		    <span>or </span>
+	    </div>
+	    <br>
+	    <a href="sign_in.php" class="create">Sign In</a></br>
     </form>
 </div>
 
